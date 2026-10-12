@@ -1,13 +1,55 @@
 from lmc import LMC
 
 # Dette programmet skal hente to tall fra brukeren, summe de sammen og legge svaret i output. 
-
-# Dette programmet skal multiplisere to tall,
-# ved å hente inn en incrementorverdi,
-# hente inn en multiplikator verdi,
-# så hente inn en verdi som skal multipliseres med multiplikator.
-program = "901,395,901,396,596,398,901,397,599,197,399,598,295,716,398,608,599,902"
 lmc = LMC()
+# Dette programmet skal legge tallet 1 i adresse 99, så adde 1 på seg selv to ganger.
+# DAT
+# 001
+# STA 99
+# ADD 99
+# ADD 99
+# OUT
+program = "450, 1, 399, 199, 199, 902"
 lmc.load_csv_string(program)
 lmc.run()
-print(lmc.output())
+assert lmc.output() == [3]
+
+
+# Dette programmet skal skrive ut Hello i output
+# DAT
+# 072
+# COUT
+# DAT
+# 101
+# COUT
+# DAT
+# 108
+# COUT
+# DAT
+# 108
+# COUT
+# DAT
+# 111
+# COUT
+program = "450, 72, 922, 450, 101, 922, 450, 108, 922, 450, 108, 922, 450, 111, 922"
+lmc.load_csv_string(program)
+lmc.run()
+assert lmc.output() == ['H', 'e', 'l', 'l', 'o']
+
+# Dette programmet skal telle ned fra 2 -> 0.
+# DAT
+# 002
+# STA 98
+# DAT
+# 001
+# STA 99
+# ADD 98
+# SUB 99
+# OUT
+# BRZ 11
+# BRA 07
+# HALT
+program = "450, 2, 398, 450, 1, 399, 198, 299, 902, 711, 607, 000"
+lmc.load_csv_string(program)
+lmc.run()
+assert lmc.output() == [2, 1, 0]
