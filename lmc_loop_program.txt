@@ -1,18 +1,12 @@
-INP
-STA 95
-INP
-STA 96
-LDA 96
-STA 98
-INP
-STA 97
-LDA 99
-ADD 97
-STA 99
-LDA 98
-SUB 95
-BRZ 16
-STA 98
-BRA 08
-LDA 99
+start LDA store
 OUT
+ADD one
+STA store
+LDA limit
+SUB store
+BRP start
+HLT
+store DAT 1
+one DAT 1
+limit DAT 10
+

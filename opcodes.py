@@ -9,7 +9,7 @@ class OpCodes(Enum):
         for v in values[1:]:
             cls._value2member_map_[v] = obj
         return obj
-    
+
     @staticmethod
     def eval_opcode(opcode_name: str) -> int:
         try:
@@ -20,7 +20,7 @@ class OpCodes(Enum):
         except ValueError:
             raise ValueError(f"Invalid Opcode parsed: {opcode_name}")
 
-    HALT = 0
+    HLT = 0
     ADD = 1
     SUB = 2
     STA = 3
@@ -31,4 +31,3 @@ class OpCodes(Enum):
     INP = 901
     OUT = 902
     COUT = 922
-    DAT = 450, 950

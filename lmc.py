@@ -3,6 +3,7 @@ import time
 from collections.abc import Callable
 import argparse
 from lmc_filereader import LMC_FileReader, LMC_FileType
+from lmc_assembler import LMC_Assembler
 
 
 class LMC:
@@ -19,12 +20,12 @@ class LMC:
         self._mem: list[int] = [0] * 100
         self._input: int = 0
         self._output: list[int] = list()
-        self._pointer: int = 0
+        self._program_counter: int = 0
         self._end: bool = False
         self._verbose: bool = verbose
         self._debug: bool = debug
         self._debug_timer: float = debug_timer
-        self._opcode_registrar: dict[int, Callable[[int], None]] = {
+        self._op_registry: dict[int, Callable[[int], None]] = {
                 OpCodes.ADD.value: self._add,
                 OpCodes.SUB.value: self._sub,
                 OpCodes.BRA.value: self._bra,
@@ -34,8 +35,7 @@ class LMC:
                 OpCodes.STA.value: self._sta,
                 OpCodes.INP.value: self._inp,
                 OpCodes.OUT.value: self._out,
-                OpCodes.HALT.value: self._halt,
-                OpCodes.DAT.value: self._dat,
+                OpCodes.HLT.value: self._halt,
                 OpCodes.COUT.value: self._out_as_char
                 }
 
@@ -46,7 +46,7 @@ class LMC:
     def _clear(self) -> None:
         self._mem = [0] * 100
         self._acc = 0
-        self._pointer = 0
+        self._program_counter = 0
         self._end = False
         self._output = list()
 
@@ -61,25 +61,13 @@ class LMC:
         except ValueError:
             raise ValueError(f"Invalid instruction in program at line {linenr + 1}: {line.strip()!r}") from None
 
-    # Enumererer gjennom en fil linje for linje, og laster hver linje inn i memorybuffer som en int.  
-    def load_machinecode_file(self, filereader: LMC_FileReader):
-        program = [self._parse_line(line, i) for i, line in enumerate(filereader.get_data())]
+    def load_machinecode(self, program):
         self._load(program)
 
-    def load_assembly_file(self, filereader: LMC_FileReader):
-        program = [self._parse_assembly_line(line, i) for i, line in enumerate(filereader.get_data())]
+    # Enumererer gjennom en fil linje for linje, og laster hver linje inn i memorybuffer som en int.  
+    def load_machinecode_file(self, filereader: LMC_FileReader):
+        program = [self._parse_line(line, i) for i, line in enumerate(filereader.lines())]
         self._load(program)
-    
-    def _parse_assembly_line(self, line, i):
-        coll = line.split()
-        op = coll[0]
-        addr = coll[1] if len(coll) == 2 else 0
-        if op not in [code.name for code in OpCodes]:
-            raise ValueError(f"Could not parse line {i} as an instruction: {line}")
-        if OpCodes.eval_opcode(op) == 9 or OpCodes.eval_opcode(op) == 4:
-            return OpCodes[op].value
-        else:
-            return OpCodes[op].value * 100 + int(addr)
 
     def _load(self, program):
         self._clear()
@@ -104,14 +92,14 @@ class LMC:
     # Evaluerer programinstruksjonen,
     # henter operasjon fra registrar basert på opcode i programinstruksjon.
     def _eval(self) -> None:
-        if self._pointer >= 100:
-            raise ValueError(f"Pointer moved passed alloted memory buffer: {self._pointer}")
-        instruction = self._mem[self._pointer]
+        if self._program_counter >= 100:
+            raise ValueError(f"Pointer moved passed alloted memory buffer: {self._program_counter}")
+        instruction = self._mem[self._program_counter]
         if self._is_invalid_instruction(instruction):
-            raise ValueError(f"Invalid instruction produced at pointer {self._pointer}: {self._instruction}")
-        self._pointer += 1
+            raise ValueError(f"Invalid instruction produced at pointer {self._program_counter}: {self._instruction}")
+        self._program_counter += 1
         k = self._get_opcode_from_instruction(instruction)
-        curr_op = self._opcode_registrar[k]
+        curr_op = self._op_registry[k]
         idx = instruction % 100
         if self._debug:
             time.sleep(self._debug_timer)
@@ -146,29 +134,22 @@ class LMC:
     # returns value in index of memory, should be used as a way to branch to this as instruction. 
     def _bra(self, idx: int) -> None:
         if self._verbose and self._debug:
-            print(f"Branching to {idx} from {self._pointer}")
-        self._pointer = idx
+            print(f"Branching to {idx} from {self._program_counter}")
+        self._program_counter = idx
 
     # returns the value in index of memory if accumulator is zero, else false.
     def _brz(self, idx: int) -> None:
         if self._verbose and self._debug:
-            print(f"Trying to branch to {idx} from {self._pointer} if accumulator is 0: {self._acc == 0}")
+            print(f"Trying to branch to {idx} from {self._program_counter} if accumulator is 0: {self._acc == 0}")
         if self._acc == 0:
-            self._pointer = idx
+            self._program_counter = idx
 
     # returns the value in index of memory if accumulator is 0 or positive, else false.
     def _brp(self, idx: int) -> None:
         if self._verbose and self._debug:
-            print(f"Trying to branch to {idx} from {self._pointer} if accumulator is a positive value: {self._acc >= 0}")
+            print(f"Trying to branch to {idx} from {self._program_counter} if accumulator is a positive value: {self._acc >= 0}")
         if self._acc >= 0:
-            self._pointer = idx
-    
-    # Represents reading a program instruction as a value. 
-    def _dat(self, _idx) -> None:
-        self._acc = self._mem[self._pointer]
-        if self._verbose and self._debug:
-            print(f"Moving instruction from {self._pointer} as value to acc: {self._mem[self._pointer]}")
-        self._pointer += 1
+            self._program_counter = idx
 
     # Tar imot en input verdi, og gjør om acc til input. 
     def _inp(self, _idx) -> None:
@@ -209,11 +190,12 @@ def main():
     parser.add_argument("-v", "--verbose", action="store_true", help="Adds aditional information to debug mode.")
     args = parser.parse_args()
     lmc = LMC(args.debug, args.timer, args.verbose)
-    reader = LMC_FileReader()
-    reader.from_file(args.file)
+    reader = LMC_FileReader(args.file)
     match reader.get_filetype():
         case LMC_FileType.ASSEMBLY:
-            lmc.load_assembly_file(reader)
+            assembler = LMC_Assembler()
+            assembler.load(reader)
+            lmc.load_machinecode(assembler.get_program())
         case LMC_FileType.MACHINE_CODE:
             lmc.load_machinecode_file(reader)
         case _:
