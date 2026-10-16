@@ -30,4 +30,4 @@ class OpCodes(Enum):
     BRP = 8
     INP = 901
     OUT = 902
-    COUT = 922
+    OTC = 922

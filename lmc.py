@@ -16,7 +16,7 @@ class LMC:
 
     def __init__(self, debug = False, debug_timer: float = 0, verbose = False) -> None:
         self._acc: int = 0
-        self._invalid_instructions = [900] + list(range(400, 450)) + list(range(451, 500)) + list(range(903, 922)) + list(range(923, 950)) + list(range(950, 1000)) 
+        self._invalid_instructions = [900] + list(range(400, 500)) + list(range(903, 922)) + list(range(923, 1000)) 
         self._mem: list[int] = [0] * 100
         self._input: int = 0
         self._output: list[int] = list()
@@ -26,20 +26,27 @@ class LMC:
         self._debug: bool = debug
         self._debug_timer: float = debug_timer
         self._op_registry: dict[int, Callable[[int], None]] = {
-                OpCodes.ADD.value: self._add,
-                OpCodes.SUB.value: self._sub,
-                OpCodes.BRA.value: self._bra,
-                OpCodes.BRZ.value: self._brz,
-                OpCodes.BRP.value: self._brp,
-                OpCodes.LDA.value: self._lda,
-                OpCodes.STA.value: self._sta,
-                OpCodes.INP.value: self._inp,
-                OpCodes.OUT.value: self._out,
-                OpCodes.HLT.value: self._halt,
-                OpCodes.COUT.value: self._out_as_char
+                OpCodes.ADD: self._add,
+                OpCodes.SUB: self._sub,
+                OpCodes.BRA: self._bra,
+                OpCodes.BRZ: self._brz,
+                OpCodes.BRP: self._brp,
+                OpCodes.LDA: self._lda,
+                OpCodes.STA: self._sta,
+                OpCodes.INP: self._inp,
+                OpCodes.OUT: self._out,
+                OpCodes.HLT: self._halt,
+                OpCodes.OTC: self._out_as_char
                 }
 
     def run(self) -> None:
+        """
+        Starts running program loaded into memory.
+
+        raises ValueError:
+                if the programcounter points to an invalid memory location.
+                if the program generates an invalid operation. 
+        """
         while (not self._end):
             self._eval()
 
@@ -50,26 +57,36 @@ class LMC:
         self._end = False
         self._output = list()
 
-    # Laster inn et program representert av en kommaseparert string.
-    def load_csv_string(self, program_string: str) -> None:
-        program = [self._parse_line(n,i) for i, n in enumerate(program_string.split(","))]
-        self._load(program)
+    # Loads machinecode into internal memory of the lmc
+    def load_machinecode(self, program: list[int]) -> None:
+        """
+        Resets lmc.
+        Loads Machinecode into internal memory.
+        Validates length and instructions. 
 
-    def _parse_line(self, line: str, linenr: int) -> int:
-        try:
-            return int(line)
-        except ValueError:
-            raise ValueError(f"Invalid instruction in program at line {linenr + 1}: {line.strip()!r}") from None
-
-    def load_machinecode(self, program):
+        - program: a list of integers representing lmc machine code. 
+        """
         self._load(program)
 
     # Enumererer gjennom en fil linje for linje, og laster hver linje inn i memorybuffer som en int.  
     def load_machinecode_file(self, filereader: LMC_FileReader):
+        """
+        Loads a file representing machinecode. 
+        parses each line to a whole number, then loads the finished list of integers as a program
+        Validates length and instructions.
+
+        Throws:
+            If the filereader points to the wrong filetype.
+
+        - filereader: An LMC_FileReader object that holds metadata about a lmc program file.
+        """
+        if not filereader.get_filetype() == LMC_FileType.MACHINE_CODE:
+            raise ValueError(f"Wrong filetype provided to machinecode parser: {filereader.get_filetype()}")
         program = [self._parse_line(line, i) for i, line in enumerate(filereader.lines())]
         self._load(program)
 
-    def _load(self, program):
+    # Resetter lmc, laster inn program i internminne, validerer lengde og instrukser.
+    def _load(self, program: list[int]) -> None:
         self._clear()
         if len(program) > 100:
             raise ValueError("The program sequence provided is longer than the program buffer.")
@@ -78,12 +95,15 @@ class LMC:
                 raise ValueError(f"Invalid instruction provided at position {i}: {program[i]}")
             self._mem[i] = program[i]
 
-    # Fetches input from a user
+    # Henter input fra en bruker.
     def _get_input(self) -> None:
         self._input = int(input("--->: "))
-    
+
     # Returns output.
     def output(self) -> list[int]:
+        """
+        returns internal output.
+        """
         return self._output
 
     def _is_invalid_instruction(self, instruction):
@@ -107,79 +127,80 @@ class LMC:
             print(f"Kjører {OpCodes(k).name} på adresse {idx if idx >= 0 else 'I/O'}")
         curr_op(idx)
 
-    # returns result of adding value of index in memory to accumulator.
+    # Definerer ADD instruksjonen, henter verdi i minne på idx, legger denne verdien til acc.
     def _add(self, idx: int) -> None:
         if self._verbose and self._debug:
             print(f"Adding {self._mem[idx]} from adress {idx} to current value in accumulator {self._acc}")
         self._acc += self._mem[idx]
 
-    # returns result of subtracting value of index in memory from accumulator.
+    # Definerer SUB instruksjonen, henter verdi i mine på idx, trekker denne verdien fra acc.
     def _sub(self, idx: int) -> None:
         if self._verbose and self._debug:
             print(f"subtracting {self._mem[idx]} from adress {idx} from value in accumulator {self._acc}")
         self._acc -= self._mem[idx]
 
-    # stores accumulator in index of memory.
+    # Definerer STA instruksjonen, legger verdi i acc til minnet på idx. Overskriver hvis det allerede er noe der.
     def _sta(self, idx: int) -> None:
         if self._verbose and self._debug:
             print(f"Adding value from accumulator {self._acc} to adress {idx}")
         self._mem[idx] = self._acc
 
-    # returns value in index of memory, should be used as a way to load some memory into acc.
+    # Definerer LDA instruksjonen, legger en verdi fra minnet på idx til acc, overskriver verdier allerede i acc.
     def _lda(self, idx: int) -> None:
         if self._verbose and self._debug:
             print(f"Loading value {self._mem[idx]} from adress {idx} to accumulator")
         self._acc = self._mem[idx]
 
-    # returns value in index of memory, should be used as a way to branch to this as instruction. 
+    # Definerer BRA instruksjonen. Flytter programcounter til idx.
     def _bra(self, idx: int) -> None:
         if self._verbose and self._debug:
             print(f"Branching to {idx} from {self._program_counter}")
         self._program_counter = idx
 
-    # returns the value in index of memory if accumulator is zero, else false.
+    # Definerer BRZ instruksjonen. Flytter programcounter til idx hvis acc == 0.
     def _brz(self, idx: int) -> None:
         if self._verbose and self._debug:
             print(f"Trying to branch to {idx} from {self._program_counter} if accumulator is 0: {self._acc == 0}")
         if self._acc == 0:
             self._program_counter = idx
 
-    # returns the value in index of memory if accumulator is 0 or positive, else false.
+    # Definerer BRP instruksjonen. flytter programcounter til idx hvis acc >= 0 (positiv).
     def _brp(self, idx: int) -> None:
         if self._verbose and self._debug:
             print(f"Trying to branch to {idx} from {self._program_counter} if accumulator is a positive value: {self._acc >= 0}")
         if self._acc >= 0:
             self._program_counter = idx
 
-    # Tar imot en input verdi, og gjør om acc til input. 
+    # Definerer INP instruksjonen. tar imot input fra terminal. setter verdi i acc. 
     def _inp(self, _idx) -> None:
         if self._verbose and self._debug:
             print(f"Loading data from input in accumulator.")
         self._get_input()
         self._acc = self._input
 
-    # Flytter verdi fra acc til output. 
+    # Definerer OUT instruksjonen. flytter verdi fra acc til output listen. 
     def _out(self, _idx) -> None:
         if self._verbose and self._debug:
             print(f"Storing value of accumulator: {self._acc} in output")
         self._output.append(self._acc)
 
+    # Definerer OTC instruksjonen. flytter verdien i acc til output listen som en char verdi.
     def _out_as_char(self, _idx) -> None:
         if self._verbose and self._debug:
             print(f"Storing value in accumulator: {self._acc} in output as char")
         self._output.append(chr(self._acc))
 
-    # setter end til true.
+    # Definerer HLT instruksjonen. setter _end til true, som avslutter løkken i run.
     def _halt(self, _idx) -> None:
         if self._verbose and self._debug:
             print("Halting program execution")
         self._end = True
 
-    # Leser en programinstruksjon, og parser opcode. 
-    def _get_opcode_from_instruction(self, instruction: int) -> int:
+    # Parser ut operasjonskoden fra instruksjonen, slik at det kan hentes en operasjon fra operasjonsregisteret. 
+    def _get_opcode_from_instruction(self, instruction: int) -> OpCodes:
         if instruction in OpCodes:
-            return instruction
-        return instruction // 100
+            return OpCodes(instruction)
+        return OpCodes(instruction // 100)
 
 
 def main():
@@ -191,15 +212,9 @@ def main():
     args = parser.parse_args()
     lmc = LMC(args.debug, args.timer, args.verbose)
     reader = LMC_FileReader(args.file)
-    match reader.get_filetype():
-        case LMC_FileType.ASSEMBLY:
-            assembler = LMC_Assembler()
-            assembler.load(reader)
-            lmc.load_machinecode(assembler.get_program())
-        case LMC_FileType.MACHINE_CODE:
-            lmc.load_machinecode_file(reader)
-        case _:
-            raise ValueError(f"Invalid filetype: {reader.get_filetype()}")
+    assembler = LMC_Assembler()
+    assembler.load(reader)
+    lmc.load_machinecode(assembler.get_program())
     lmc.run()
     print(lmc.output())
 

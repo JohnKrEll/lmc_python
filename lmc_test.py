@@ -1,37 +1,22 @@
 from lmc import LMC
 
+# Denne må omskrives!
+
 # Dette programmet skal hente to tall fra brukeren, summe de sammen og legge svaret i output. 
 lmc = LMC()
 # Dette programmet skal legge tallet 1 i adresse 99, så adde 1 på seg selv to ganger.
-# DAT
-# 001
+# INP
 # STA 99
 # ADD 99
 # ADD 99
 # OUT
-program = "450, 1, 399, 199, 199, 902"
-lmc.load_csv_string(program)
+lmc.load_machinecode(program)
 lmc.run()
 assert lmc.output() == [3]
 
 
 # Dette programmet skal skrive ut Hello i output
-# DAT
-# 072
-# COUT
-# DAT
-# 101
-# COUT
-# DAT
-# 108
-# COUT
-# DAT
-# 108
-# COUT
-# DAT
-# 111
-# COUT
-program = "450, 72, 922, 450, 101, 922, 450, 108, 922, 450, 108, 922, 450, 111, 922"
+program = [450, 72, 922, 450, 101, 922, 450, 108, 922, 450, 108, 922, 450, 111, 922]
 lmc.load_csv_string(program)
 lmc.run()
 assert lmc.output() == ['H', 'e', 'l', 'l', 'o']

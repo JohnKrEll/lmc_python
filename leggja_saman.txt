@@ -1,0 +1,25 @@
+INP
+STA x
+INP
+STA limit
+INP
+STA year
+loop LDA limit
+SUB count
+BRZ output
+LDA result
+ADD x
+STA result
+LDA count
+ADD one
+STA count
+BRA loop
+output LDA result
+OUT
+HLT
+count DAT 0
+one DAT 1
+x DAT 0
+limit DAT 0
+year DAT 0
+result DAT 0

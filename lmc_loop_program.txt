@@ -1,12 +1,12 @@
-start LDA store
-OUT
-ADD one
-STA store
-LDA limit
-SUB store
-BRP start
-HLT
-store DAT 1
-one DAT 1
-limit DAT 10
+start		LDA store
+				OUT
+				ADD one
+				STA store
+				LDA limit
+				SUB store
+				BRP start
+				HLT
+store		DAT 1
+one			DAT 1
+limit		DAT 10
 
